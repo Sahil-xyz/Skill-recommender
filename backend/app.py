@@ -1,21 +1,25 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import os
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for frontend connection
 
 # Load dataset
 df = pd.read_csv("jobs.csv")
 
+# Precompute vectorizer + job vectors (IMPORTANT for performance)
+vectorizer = TfidfVectorizer()
+job_vectors = vectorizer.fit_transform(df["skills"].tolist())
+
 # Recommendation function
 def recommend_jobs(user_input):
-    corpus = df["skills"].tolist()
+    user_vector = vectorizer.transform([user_input])
     
-    vectorizer = TfidfVectorizer()
-    vectors = vectorizer.fit_transform(corpus + [user_input])
-    
-    similarity = cosine_similarity(vectors[-1], vectors[:-1])
+    similarity = cosine_similarity(user_vector, job_vectors)
     scores = similarity.flatten()
     
     results = []
@@ -37,11 +41,22 @@ def recommend_jobs(user_input):
 @app.route("/recommend", methods=["POST"])
 def recommend():
     data = request.get_json()
+    
+    if not data or "skills" not in data:
+        return jsonify({"error": "Please provide skills"}), 400
+    
     user_input = data.get("skills", "")
     
     results = recommend_jobs(user_input)
     
-    return jsonify(results[:5])  # top 5 jobs
+    return jsonify(results[:5])
 
+# Root route (for testing on browser)
+@app.route("/")
+def home():
+    return "Skill Recommender API is running 🚀"
+
+# Run app (Render-compatible)
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
