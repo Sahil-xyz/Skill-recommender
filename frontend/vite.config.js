@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/recommend': {
-        target: 'http://127.0.0.1:5000',
+        target: 'https://skill-recommender-backend-3ord.onrender.com',
         changeOrigin: true
       }
     }
